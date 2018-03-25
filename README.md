@@ -24,6 +24,8 @@ import (
         "net/http"
 
         "a4.io/go/indieauth"
+
+        "github.com/gorilla/context"
         "github.com/gorilla/sessions"
 )
 
@@ -42,6 +44,6 @@ func main() {
         http.Handle("/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
                 w.Write([]byte("YAY!"))
         })))
-        log.Fatal(http.ListenAndServe(":8011", nil))
+        log.Fatal(http.ListenAndServe(":8011", context.ClearHandler(http.DefaultServeMux)))
 }
 ```
