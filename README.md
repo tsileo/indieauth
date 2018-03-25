@@ -1,7 +1,7 @@
 # IndieAuth
 
 [![Build Status](https://travis-ci.org/tsileo/indieauth.svg?branch=master)](https://travis-ci.org/tsileo/indieauth)
-&nbsp; &nbsp;[![Godoc Reference](https://godoc.org/a4.io/indieauth?status.svg)](https://godoc.org/a4.io/indieauth)
+&nbsp; &nbsp;[![Godoc Reference](https://godoc.org/a4.io/go/indieauth?status.svg)](https://godoc.org/a4.io/go/indieauth)
 
 This package is designed to replace basic authentication by [IndieAuth](https://www.w3.org/TR/indieauth/) in personal projects 
 when you want to restrict access only to yourself.
