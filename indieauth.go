@@ -1,4 +1,4 @@
-package indieauth // import "a4.io/indieauth"
+package indieauth // import "a4.io/go/indieauth"
 
 import (
 	"crypto/rand"
@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	ua          = "IndieAuth client (+https://a4.io/indieauth)"
+	ua          = "IndieAuth client (+https://a4.io/go/indieauth)"
 	sessionName = "indieauth"
 )
 

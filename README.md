@@ -11,7 +11,7 @@ It's not designed to handle multiple users.
 ## QuickStart
 
 ```bash
-$ get get a4.io/indieauth
+$ get get a4.io/go/indieauth
 ```
 
 ```go
@@ -21,7 +21,7 @@ import (
         "log"
         "net/http"
 
-        "a4.io/indieauth"
+        "a4.io/go/indieauth"
         "github.com/gorilla/sessions"
 )
 
