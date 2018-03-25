@@ -19,7 +19,7 @@ const (
 	sessionName = "indieauth"
 )
 
-// ErrForibben is returned when the authorization endpoint answered a 403
+// ErrForbidden is returned when the authorization endpoint answered a 403
 var ErrForbidden = errors.New("authorization endpoint answered with forbidden")
 
 // IndieAuth holds the auth manager
