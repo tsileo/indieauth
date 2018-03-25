@@ -23,14 +23,18 @@ func TestServer(t *testing.T) {
 		w.Write([]byte(fmt.Sprintf(`<!doctype html><html><head><meta charset=utf-8><link rel="authorization_endpoint" href="/indieauth"></head></html>`)))
 
 	})
+	var codeWasVerified bool
+	var authEndpointCalled bool
 	iaMux.HandleFunc("/indieauth", func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("mock /indieauth")
 		if r.Method == "GET" {
+			authEndpointCalled = true
 			http.Redirect(w, r, r.URL.Query().Get("redirect_uri")+"?code=ok&state="+r.URL.Query().Get("state")+"&me="+r.URL.Query().Get("me"), http.StatusTemporaryRedirect)
 			return
 		}
 		t.Logf("mock POST /indieauth")
 		w.Header().Set("Content-Type", "application/json")
+		codeWasVerified = true
 		// FIXME(tsileo): vary this and return 403
 		w.Write([]byte(`{}`))
 	})
@@ -78,5 +82,11 @@ func TestServer(t *testing.T) {
 	}
 	if string(data) != "hello" {
 		t.Errorf("bad response, expected \"hello\", got \"%s\"", data)
+	}
+	if !authEndpointCalled {
+		t.Errorf("the authorization endpoint wasn't called")
+	}
+	if !codeWasVerified {
+		t.Errorf("code was not verified")
 	}
 }

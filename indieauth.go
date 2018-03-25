@@ -109,7 +109,6 @@ func (ia *IndieAuth) verifyCode(code string) (*verifyResp, error) {
 	if err := json.NewDecoder(resp.Body).Decode(vresp); err != nil {
 		panic(err)
 	}
-	fmt.Printf("vresp=%+v\n", vresp)
 	return vresp, nil
 }
 
@@ -122,7 +121,6 @@ func (ia *IndieAuth) RedirectHandler(w http.ResponseWriter, r *http.Request) {
 		code := q.Get("code")
 		state := q.Get("state")
 
-		fmt.Printf("q=%+q,ia=%+v\n", q, ia)
 		if me != ia.me {
 			panic("invalid me")
 		}
