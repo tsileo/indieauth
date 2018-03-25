@@ -122,6 +122,7 @@ func (ia *IndieAuth) RedirectHandler(w http.ResponseWriter, r *http.Request) {
 		code := q.Get("code")
 		state := q.Get("state")
 
+		fmt.Printf("q=%+q,ia=%+v\n", q, ia)
 		if me != ia.me {
 			panic("invalid me")
 		}
