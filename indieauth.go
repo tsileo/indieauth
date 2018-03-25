@@ -178,14 +178,19 @@ func (ia *IndieAuth) Redirect(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// Check returns true if there is an existing session with a valid login
+func (ia *IndieAuth) Check(r *http.Request) bool {
+	// Check if there's a session and if the the user is already logged in
+	session, _ := ia.store.Get(r, sessionName)
+	loggedIn, ok := session.Values["logged_in"]
+	return ok && loggedIn.(bool)
+}
+
 // Middleware provides a middleware that will only only user authenticated against with the indieauth endpoint
 func (ia *IndieAuth) Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Check if there's a session and if the the user is already logged in
-			session, _ := ia.store.Get(r, sessionName)
-			loggedIn, ok := session.Values["logged_in"]
-			if !ok || !loggedIn.(bool) {
+			if r.URL.String() != "/indieauth-redirect" && !ia.Check(r) {
 				if err := ia.Redirect(w, r); err != nil {
 					if err == ErrForbidden {
 						w.WriteHeader(http.StatusForbidden)
