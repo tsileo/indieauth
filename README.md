@@ -9,7 +9,7 @@ This package implements an [IndieAuth (an identity layer on top of OAuth 2.0)](h
 
 It implements an **IndieAuth Client** and will use your own external Authorization Endpoint.
 
-A basic use case is to replace basic authentication when restricting access to private projects.
+It was designed to replace basic authentication when restricting access to private projects, it does not support multiple users.
 
 ## QuickStart
 
