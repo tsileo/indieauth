@@ -11,11 +11,15 @@ It implements an **IndieAuth Client** and will use your own external Authorizati
 
 It was designed to replace basic authentication when restricting access to private projects, it does not support multiple users.
 
+Relies on the [sessions package from the Gorilla web toolkit](http://www.gorillatoolkit.org/pkg/sessions).
+
 ## QuickStart
 
 ```bash
 $ get get a4.io/go/indieauth
 ```
+
+**Note:** If you are not using gorilla/mux, you need to wrap your handlers with [`context.ClearHandler`](http://www.gorillatoolkit.org/pkg/context#ClearHandler) to prevent leaking memory.
 
 ```go
 package main
