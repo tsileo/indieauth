@@ -1,3 +1,6 @@
+/*
+Package indieauth implements an IndieAuth (an identity layer on top of OAuth 2.0)] client/authentication middleware.
+*/
 package indieauth // import "a4.io/go/indieauth"
 
 import (

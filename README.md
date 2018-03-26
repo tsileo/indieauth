@@ -5,10 +5,11 @@
 &nbsp; &nbsp;[![Go Report Card](https://goreportcard.com/badge/a4.io/go/indieauth)](https://goreportcard.com/report/a4.io/go/indieauth)
 &nbsp; &nbsp;[![License](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/tsileo/indieauth/master/LICENSE)
 
-This package is designed to replace basic authentication by [IndieAuth](https://www.w3.org/TR/indieauth/) in personal projects 
-when you want to restrict access only to yourself.
+This package implements an [IndieAuth (an identity layer on top of OAuth 2.0)](https://www.w3.org/TR/indieauth/) client/authentication middleware.
 
-It's not designed to handle multiple users.
+It implements an **IndieAuth Client** and will use your own external Authorization Endpoint.
+
+A basic use case is to replace basic authentication when restricting access to private projects.
 
 ## QuickStart
 
