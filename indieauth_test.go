@@ -13,36 +13,59 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
+type mockIndieAuthServer struct {
+	Code  string
+	State string
+	Me    string
+
+	indexCall, authCall, verifCall int
+
+	t *testing.T
+	s *httptest.Server
+}
+
+func (s *mockIndieAuthServer) IndexHandler(w http.ResponseWriter, r *http.Request) {
+	s.indexCall++
+	s.t.Logf("MockIndieAuthServer GET /")
+	w.Write([]byte(fmt.Sprintf(`<!doctype html><html><head><meta charset=utf-8><link rel="authorization_endpoint" href="/indieauth"></head></html>`)))
+}
+
+func (s *mockIndieAuthServer) AuthHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		s.authCall++
+		s.t.Logf("MockIndieAuthServer GET /indieauth")
+		http.Redirect(w, r, r.URL.Query().Get("redirect_uri")+"?code="+s.Code+"&state="+r.URL.Query().Get("state")+"&me="+r.URL.Query().Get("me"), http.StatusTemporaryRedirect)
+	case "POST":
+		s.verifCall++
+		s.t.Logf("MockIndieAuthServer POST /indieauth")
+		w.Header().Set("Content-Type", "application/json")
+		// FIXME(tsileo): vary this and return 403
+		w.Write([]byte("{\"me\":\"" + s.Me + "\"}"))
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func newMockIndieAuthServer(t *testing.T) *mockIndieAuthServer {
+	// Mock the indieauth server
+	iaMux := http.NewServeMux()
+	mockServer := &mockIndieAuthServer{Code: "lol", t: t}
+	iaMux.HandleFunc("/", mockServer.IndexHandler)
+	iaMux.HandleFunc("/indieauth", mockServer.AuthHandler)
+	iaServer := httptest.NewServer(iaMux)
+	mockServer.s = iaServer
+	mockServer.Me = iaServer.URL
+	return mockServer
+}
+
 func TestServer(t *testing.T) {
 	cookies := sessions.NewCookieStore([]byte("my-secret"))
 
-	// Mock the indieauth server
-	iaMux := http.NewServeMux()
-	iaMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		t.Logf("mock /")
-		w.Write([]byte(fmt.Sprintf(`<!doctype html><html><head><meta charset=utf-8><link rel="authorization_endpoint" href="/indieauth"></head></html>`)))
-
-	})
-	var codeWasVerified bool
-	var authEndpointCalled bool
-	iaMux.HandleFunc("/indieauth", func(w http.ResponseWriter, r *http.Request) {
-		t.Logf("mock /indieauth")
-		if r.Method == "GET" {
-			authEndpointCalled = true
-			http.Redirect(w, r, r.URL.Query().Get("redirect_uri")+"?code=ok&state="+r.URL.Query().Get("state")+"&me="+r.URL.Query().Get("me"), http.StatusTemporaryRedirect)
-			return
-		}
-		t.Logf("mock POST /indieauth")
-		w.Header().Set("Content-Type", "application/json")
-		codeWasVerified = true
-		// FIXME(tsileo): vary this and return 403
-		w.Write([]byte(`{}`))
-	})
-	iaServer := httptest.NewServer(iaMux)
-	t.Logf("indieauth mock server: %s", iaServer.URL)
+	mockServer := newMockIndieAuthServer(t)
 
 	// Create a server that use the lib
-	s, err := New(cookies, iaServer.URL, "")
+	s, err := New(cookies, mockServer.Me, "")
 	if err != nil {
 		panic(err)
 	}
@@ -83,10 +106,10 @@ func TestServer(t *testing.T) {
 	if string(data) != "hello" {
 		t.Errorf("bad response, expected \"hello\", got \"%s\"", data)
 	}
-	if !authEndpointCalled {
+	if mockServer.authCall != 1 {
 		t.Errorf("the authorization endpoint wasn't called")
 	}
-	if !codeWasVerified {
+	if mockServer.verifCall != 1 {
 		t.Errorf("code was not verified")
 	}
 }
