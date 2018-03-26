@@ -25,18 +25,38 @@ const (
 // ErrForbidden is returned when the authorization endpoint answered a 403
 var ErrForbidden = errors.New("authorization endpoint answered with forbidden")
 
+func defaultClientID(r *http.Request) string {
+	s := "https"
+	if r.TLS == nil {
+		s = "http"
+	}
+	return s + "://" + r.Host
+}
+
+// ClientID can optionally be set to force a client ID.
+// IndieAuth.ClientID = indieauth.ClientID("https://my.client.tld")
+func ClientID(clientID string) func(*http.Request) string {
+	return func(_ *http.Request) string {
+		return clientID
+	}
+}
+
 // IndieAuth holds the auth manager
 type IndieAuth struct {
 	me           string
 	authEndpoint string
 	store        *sessions.CookieStore
 	cache        *lru.Cache
-	clientID     string
-	redirectURI  string
+
+	// ClientID will try to guess the client ID from the request by default
+	ClientID func(r *http.Request) string
+	// RedirectPath will default to `/indieauth-redirect`
+	RedirectPath string
 }
 
 // New initializes a indieauth auth manager
-func New(store *sessions.CookieStore, me, clientID string) (*IndieAuth, error) {
+func New(store *sessions.CookieStore, me string) (*IndieAuth, error) {
+	// FIXME(tsileo): guess the client ID when needed
 	c, err := lru.New(64)
 	if err != nil {
 		return nil, err
@@ -47,11 +67,11 @@ func New(store *sessions.CookieStore, me, clientID string) (*IndieAuth, error) {
 	}
 	ia := &IndieAuth{
 		me:           me,
-		clientID:     clientID,
-		redirectURI:  clientID + "/indieauth-redirect",
 		authEndpoint: authEndpoint,
 		store:        store,
 		cache:        c,
+		ClientID:     defaultClientID,
+		RedirectPath: "/indieauth-redirect",
 	}
 	return ia, nil
 }
@@ -83,11 +103,12 @@ type verifyResp struct {
 }
 
 // verifyCode calls the authorization endpoint to verify/authenticate the received code
-func (ia *IndieAuth) verifyCode(code string) (*verifyResp, error) {
+func (ia *IndieAuth) verifyCode(r *http.Request, code string) (*verifyResp, error) {
 	vs := &url.Values{}
 	vs.Set("code", code)
-	vs.Set("client_id", ia.clientID)
-	vs.Set("redirect_uri", ia.redirectURI)
+	clientID := ia.ClientID(r)
+	vs.Set("client_id", clientID)
+	vs.Set("redirect_uri", clientID+ia.RedirectPath)
 
 	req, err := http.NewRequest("POST", ia.authEndpoint, strings.NewReader(vs.Encode()))
 	if err != nil {
@@ -133,7 +154,7 @@ func (ia *IndieAuth) RedirectHandler(w http.ResponseWriter, r *http.Request) {
 			panic(fmt.Errorf("invalid state"))
 		}
 
-		if _, err := ia.verifyCode(code); err != nil {
+		if _, err := ia.verifyCode(r, code); err != nil {
 			if err == ErrForbidden {
 				w.WriteHeader(http.StatusForbidden)
 				return
@@ -170,8 +191,9 @@ func (ia *IndieAuth) Redirect(w http.ResponseWriter, r *http.Request) error {
 	// Add the query params
 	q := pu.Query()
 	q.Set("me", ia.me)
-	q.Set("client_id", ia.clientID)
-	q.Set("redirect_uri", ia.redirectURI)
+	clientID := ia.ClientID(r)
+	q.Set("client_id", clientID)
+	q.Set("redirect_uri", clientID+ia.RedirectPath)
 	q.Set("state", state)
 	pu.RawQuery = q.Encode()
 

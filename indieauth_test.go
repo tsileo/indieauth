@@ -65,7 +65,7 @@ func TestServer(t *testing.T) {
 	mockServer := newMockIndieAuthServer(t)
 
 	// Create a server that use the lib
-	s, err := New(cookies, mockServer.Me, "")
+	s, err := New(cookies, mockServer.Me)
 	if err != nil {
 		panic(err)
 	}
@@ -79,8 +79,6 @@ func TestServer(t *testing.T) {
 	})))
 
 	server := httptest.NewServer(mux)
-	s.clientID = server.URL
-	s.redirectURI = server.URL + "/indieauth-redirect"
 
 	// Setup a client with cookies support
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})

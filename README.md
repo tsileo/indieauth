@@ -37,7 +37,7 @@ import (
 var cookieStore = sessions.NewCookieStore([]byte("my-secret"))
 
 func main() {
-        indie, err := indieauth.New(cookieStore, "https://my.indie.auth.domain", "https://my.app.id")
+        indie, err := indieauth.New(cookieStore, "https://my.indie.auth.domain")
         if err != nil {
                 panic(err)
         }
