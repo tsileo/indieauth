@@ -14,12 +14,15 @@ import (
 
 	"github.com/gorilla/sessions"
 	"github.com/hashicorp/golang-lru"
+	"github.com/peterhellberg/link"
 	"willnorris.com/go/microformats"
 )
 
 const (
 	// DefaultRedirectPath is default path where the RedirectHandler should be served
 	DefaultRedirectPath = "/indieauth-redirect"
+
+	authEndpointRel = "authorization_endpoint"
 )
 
 var (
@@ -84,7 +87,7 @@ func New(store *sessions.CookieStore, me string) (*IndieAuth, error) {
 	return ia, nil
 }
 
-// getAuthEndpoint calls the "me" URL with a microformats2 parser to fetch the "authorization_endpoint"
+// getAuthEndpoint fetches the "me" URL to discover the "authorization_endpoint"
 func getAuthEndpoint(me string) (string, error) {
 	req, err := http.NewRequest("GET", me, nil)
 	if err != nil {
@@ -98,9 +101,16 @@ func getAuthEndpoint(me string) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	// From the spec: "the first HTTP Link header takes precedence"
+	for _, l := range link.ParseResponse(resp) {
+		if l.Rel == authEndpointRel {
+			return l.URI, nil
+		}
+	}
+
 	data := microformats.Parse(resp.Body, resp.Request.URL)
 
-	authEndpoints := data.Rels["authorization_endpoint"]
+	authEndpoints := data.Rels[authEndpointRel]
 	if len(authEndpoints) == 0 {
 		return "", fmt.Errorf("no authorization_endpoint")
 	}
