@@ -37,16 +37,16 @@ import (
 var cookieStore = sessions.NewCookieStore([]byte("my-secret"))
 
 func main() {
-        indie, err := indieauth.New(cookieStore, "https://my.indie.auth.domain")
+        ia, err:= indieauth.Middleware(cookieStore, "https://my.indie.auth.domain")
         if err != nil {
                 panic(err)
         }
-        authMiddleware := indie.Middleware()
-        http.HandleFunc("/indieauth-redirect", indie.RedirectHandler)
+	iaMiddleware = ia.Middleware()
+        http.HandleFunc(indieauth.DefaultRedirectPath, ia.RedirectHandler)
         http.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
                 indie.Logout(w, r)
         })
-        http.Handle("/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        http.Handle("/", iaMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
                 w.Write([]byte("YAY!"))
         })))
         log.Fatal(http.ListenAndServe(":8011", context.ClearHandler(http.DefaultServeMux)))

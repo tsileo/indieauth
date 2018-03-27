@@ -29,10 +29,10 @@ var (
 	// ErrForbidden is returned when the authorization endpoint answered a 403
 	ErrForbidden = errors.New("authorization endpoint answered with forbidden")
 
-	// User agent for the requests performed as an "IndieAuth Client"
+	// UserAgent is the User Agent used for the requests performed as an "IndieAuth Client"
 	UserAgent = "IndieAuth client (+https://a4.io/go/indieauth)"
 
-	// Session name for the Gorilla session
+	// SessionName is the name of the Gorilla session
 	SessionName = "indieauth"
 )
 
@@ -66,7 +66,7 @@ type IndieAuth struct {
 	RedirectPath string
 }
 
-// New initializes a indieauth auth manager
+// New initializes an IndieAuth auth manager, the `Middleware` shortcut is the preferred API unless you want fine-grained configuration.
 func New(store *sessions.CookieStore, me string) (*IndieAuth, error) {
 	c, err := lru.New(64)
 	if err != nil {
@@ -239,7 +239,7 @@ func (ia *IndieAuth) Check(r *http.Request) bool {
 	return ok && loggedIn.(bool)
 }
 
-// Middleware provides a middleware that will only only user authenticated against with the indieauth endpoint
+// Middleware provides a middleware that will only allow user authenticated against the given IndiAuth endpoint
 func (ia *IndieAuth) Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
