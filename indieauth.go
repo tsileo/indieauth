@@ -18,13 +18,22 @@ import (
 )
 
 const (
-	ua          = "IndieAuth client (+https://a4.io/go/indieauth)"
-	sessionName = "indieauth"
+	// DefaultRedirectPath is default path where the RedirectHandler should be served
+	DefaultRedirectPath = "/indieauth-redirect"
 )
 
-// ErrForbidden is returned when the authorization endpoint answered a 403
-var ErrForbidden = errors.New("authorization endpoint answered with forbidden")
+var (
+	// ErrForbidden is returned when the authorization endpoint answered a 403
+	ErrForbidden = errors.New("authorization endpoint answered with forbidden")
 
+	// User agent for the requests performed as an "IndieAuth Client"
+	UserAgent = "IndieAuth client (+https://a4.io/go/indieauth)"
+
+	// Session name for the Gorilla session
+	SessionName = "indieauth"
+)
+
+// defaultClientID guess the client ID from the current request
 func defaultClientID(r *http.Request) string {
 	s := "https"
 	if r.TLS == nil {
@@ -33,7 +42,7 @@ func defaultClientID(r *http.Request) string {
 	return s + "://" + r.Host
 }
 
-// ClientID can optionally be set to force a client ID.
+// ClientID can optionally be used to force a specific client ID.
 // IndieAuth.ClientID = indieauth.ClientID("https://my.client.tld")
 func ClientID(clientID string) func(*http.Request) string {
 	return func(_ *http.Request) string {
@@ -56,7 +65,6 @@ type IndieAuth struct {
 
 // New initializes a indieauth auth manager
 func New(store *sessions.CookieStore, me string) (*IndieAuth, error) {
-	// FIXME(tsileo): guess the client ID when needed
 	c, err := lru.New(64)
 	if err != nil {
 		return nil, err
@@ -71,7 +79,7 @@ func New(store *sessions.CookieStore, me string) (*IndieAuth, error) {
 		store:        store,
 		cache:        c,
 		ClientID:     defaultClientID,
-		RedirectPath: "/indieauth-redirect",
+		RedirectPath: DefaultRedirectPath,
 	}
 	return ia, nil
 }
@@ -82,13 +90,16 @@ func getAuthEndpoint(me string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", ua)
+	req.Header.Set("User-Agent", UserAgent)
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", nil
 	}
 	defer resp.Body.Close()
+
 	data := microformats.Parse(resp.Body, resp.Request.URL)
+
 	authEndpoints := data.Rels["authorization_endpoint"]
 	if len(authEndpoints) == 0 {
 		return "", fmt.Errorf("no authorization_endpoint")
@@ -114,7 +125,7 @@ func (ia *IndieAuth) verifyCode(r *http.Request, code string) (*verifyResp, erro
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", ua)
+	req.Header.Set("User-Agent", UserAgent)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
@@ -140,20 +151,24 @@ func (ia *IndieAuth) verifyCode(r *http.Request, code string) (*verifyResp, erro
 func (ia *IndieAuth) RedirectHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
+		// Extract query parameters
 		q := r.URL.Query()
 		me := q.Get("me")
 		code := q.Get("code")
 		state := q.Get("state")
 
+		// Sanity check
 		if me != ia.me {
 			panic("invalid me")
 		}
 
+		// Verify the state/nonce to protect from XSRF attacks
 		p, validState := ia.cache.Get(state)
 		if !validState {
 			panic(fmt.Errorf("invalid state"))
 		}
 
+		// Verify the code against the remote IndieAuth server
 		if _, err := ia.verifyCode(r, code); err != nil {
 			if err == ErrForbidden {
 				w.WriteHeader(http.StatusForbidden)
@@ -161,9 +176,13 @@ func (ia *IndieAuth) RedirectHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			panic(err)
 		}
-		session, _ := ia.store.Get(r, sessionName)
+
+		// Update the session
+		session, _ := ia.store.Get(r, SessionName)
 		session.Values["logged_in"] = true
 		session.Save(r, w)
+
+		// Redirect the user to the page requested before the login
 		http.Redirect(w, r, p.(string), http.StatusTemporaryRedirect)
 
 	default:
@@ -178,7 +197,7 @@ func (ia *IndieAuth) Redirect(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	// Generate a random state
+	// Generate a random state that will act as a XSRF token
 	rawState := make([]byte, 12)
 	if _, err := rand.Read(rawState); err != nil {
 		return err
@@ -205,7 +224,7 @@ func (ia *IndieAuth) Redirect(w http.ResponseWriter, r *http.Request) error {
 // Check returns true if there is an existing session with a valid login
 func (ia *IndieAuth) Check(r *http.Request) bool {
 	// Check if there's a session and if the the user is already logged in
-	session, _ := ia.store.Get(r, sessionName)
+	session, _ := ia.store.Get(r, SessionName)
 	loggedIn, ok := session.Values["logged_in"]
 	return ok && loggedIn.(bool)
 }
@@ -214,7 +233,7 @@ func (ia *IndieAuth) Check(r *http.Request) bool {
 func (ia *IndieAuth) Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.String() != "/indieauth-redirect" && !ia.Check(r) {
+			if r.URL.Path != ia.RedirectPath && !ia.Check(r) {
 				if err := ia.Redirect(w, r); err != nil {
 					if err == ErrForbidden {
 						w.WriteHeader(http.StatusForbidden)
@@ -234,7 +253,10 @@ func (ia *IndieAuth) Middleware() func(http.Handler) http.Handler {
 
 // Logout logs out the current user
 func (ia *IndieAuth) Logout(w http.ResponseWriter, r *http.Request) {
-	session, _ := ia.store.Get(r, "indieauth")
+	session, err := ia.store.Get(r, "indieauth")
+	if err != nil {
+		panic(err)
+	}
 	session.Values["logged_in"] = false
 	session.Save(r, w)
 }
