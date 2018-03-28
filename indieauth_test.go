@@ -59,6 +59,8 @@ func newMockIndieAuthServer(t *testing.T) *mockIndieAuthServer {
 	return mockServer
 }
 
+// FIXME(tsileo): test discovery, header and HTML, header precedence
+
 func TestServer(t *testing.T) {
 	cookies := sessions.NewCookieStore([]byte("my-secret"))
 
