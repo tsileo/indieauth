@@ -59,9 +59,67 @@ func newMockIndieAuthServer(t *testing.T) *mockIndieAuthServer {
 	return mockServer
 }
 
-// FIXME(tsileo): test discovery, header and HTML, header precedence
+func TestAuthorizationEndpointDiscoveryLinkTag(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(fmt.Sprintf(`<!doctype html><html><head><meta charset=utf-8><link rel="authorization_endpoint" href="/indieauth"></head></html>`)))
+	})
+	server := httptest.NewServer(mux)
 
-func TestServer(t *testing.T) {
+	authEndpoint, err := getAuthEndpoint(server.URL)
+	if err != nil {
+		panic(err)
+	}
+
+	if authEndpoint != server.URL+"/indieauth" {
+		t.Errorf("failed to discover authorization endpoint, expected \"%s/indieauth\", got %q", server.URL, authEndpoint)
+	}
+}
+
+func TestAuthorizationEndpointDiscoveryLinkHeader(t *testing.T) {
+	mux := http.NewServeMux()
+	var serverURL string
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Link", fmt.Sprintf("<%s/indieauth>; rel=\"authorization_endpoint\"", serverURL))
+	})
+	server := httptest.NewServer(mux)
+	serverURL = server.URL
+
+	authEndpoint, err := getAuthEndpoint(server.URL)
+	if err != nil {
+		panic(err)
+	}
+
+	if authEndpoint != serverURL+"/indieauth" {
+		t.Errorf("failed to discover authorization endpoint, expected \"%s/indieauth\", got %q", serverURL, authEndpoint)
+	}
+}
+
+func TestAuthorizationEndpointDiscovery(t *testing.T) {
+	mux := http.NewServeMux()
+	var serverURL string
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// From the spec (https://www.w3.org/TR/indieauth/#x4-1-discovery-by-clients):
+		// >>> the first HTTP Link header takes precedence, followed by the first <link> element in document order.
+		// The client should discover `serverURL + "/lol"`
+		w.Header().Set("Link", fmt.Sprintf("<%s/lol>; rel=\"authorization_endpoint\"", serverURL))
+		w.Write([]byte(fmt.Sprintf(`<!doctype html><html><head><meta charset=utf-8><link rel="authorization_endpoint" href="/indieauth"></head></html>`)))
+	})
+	server := httptest.NewServer(mux)
+	serverURL = server.URL
+
+	authEndpoint, err := getAuthEndpoint(server.URL)
+	if err != nil {
+		panic(err)
+	}
+
+	if authEndpoint != serverURL+"/lol" {
+		t.Errorf("failed to discover authorization endpoint, expected \"%s/lol\", got %q", serverURL, authEndpoint)
+	}
+
+}
+
+func TestMiddleware(t *testing.T) {
 	cookies := sessions.NewCookieStore([]byte("my-secret"))
 
 	mockServer := newMockIndieAuthServer(t)

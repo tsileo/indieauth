@@ -29,6 +29,9 @@ var (
 	// ErrForbidden is returned when the authorization endpoint answered a 403
 	ErrForbidden = errors.New("authorization endpoint answered with forbidden")
 
+	// ErrAuthorizationEndointNotFound is returned when the authorization_endpoint could not be discovered for the given URL
+	ErrAuthorizationEndpointNotFound = errors.New("authorization_endpoint not found")
+
 	// UserAgent is the User Agent used for the requests performed as an "IndieAuth Client"
 	UserAgent = "IndieAuth client (+https://a4.io/go/indieauth)"
 
@@ -112,7 +115,7 @@ func getAuthEndpoint(me string) (string, error) {
 
 	authEndpoints := data.Rels[authEndpointRel]
 	if len(authEndpoints) == 0 {
-		return "", fmt.Errorf("no authorization_endpoint")
+		return "", ErrAuthorizationEndpointNotFound
 	}
 	return authEndpoints[0], nil
 }
