@@ -1,8 +1,0 @@
-language: go
-
-go:
-  - '1.10'
-
-go_import_path: a4.io/go/indieauth
-script:
-  - go test -v .
