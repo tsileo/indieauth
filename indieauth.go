@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/sessions"
+	"github.com/hashicorp/golang-lru"
 	"github.com/peterhellberg/link"
 	"willnorris.com/go/microformats"
 )
