@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/sessions"
-	"github.com/hashicorp/golang-lru"
 	"github.com/peterhellberg/link"
 	"willnorris.com/go/microformats"
 )
@@ -45,7 +44,7 @@ func defaultClientID(r *http.Request) string {
 	if r.TLS == nil {
 		s = "http"
 	}
-	return s + "://" + r.Host
+	return s + "://" + r.Host + "/"
 }
 
 // ClientID can optionally be used to force a specific client ID.
@@ -181,6 +180,8 @@ func (ia *IndieAuth) RedirectHandler(w http.ResponseWriter, r *http.Request) {
 			panic(fmt.Errorf("invalid state"))
 		}
 
+		ia.cache.Remove(state)
+
 		// Verify the code against the remote IndieAuth server
 		if _, err := ia.verifyCode(r, code); err != nil {
 			if err == ErrForbidden {
@@ -218,6 +219,7 @@ func (ia *IndieAuth) Redirect(w http.ResponseWriter, r *http.Request) error {
 	state := fmt.Sprintf("%x", rawState)
 
 	// Store the state in the LRU cache
+	//FIXME(tsileo): store the "redirect path" in the state (base64 JS with token + redirect path + HMAC?) and remove the LRU?
 	ia.cache.Add(state, r.URL.String())
 
 	// Add the query params
